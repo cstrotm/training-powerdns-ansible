@@ -1,0 +1,14 @@
+ttl 60
+server 192.0.2.53
+zone dnslab.org
+del pdns{{ ansible_hostname[-2:] }}a.dnslab.org.
+del zone{{ ansible_hostname[-2:] }}.dnslab.org. DS
+del zone{{ ansible_hostname[-2:] }}.dnslab.org. NS
+send
+add pdns{{ ansible_hostname[-2:] }}a.dnslab.org. a {{ ansible_eth0.ipv4.address }}
+add pdns{{ ansible_hostname[-2:] }}a.dnslab.org. aaaa {{ ansible_eth0.ipv6[0].address }}
+send
+add zone{{ ansible_hostname[-2:] }}.dnslab.org. NS pdns{{ ansible_hostname[-2:] }}a.dnslab.org.
+add zone{{ ansible_hostname[-2:] }}.dnslab.org. NS pdns{{ ansible_hostname[-2:] }}b.dnslab.org.
+send
+quit

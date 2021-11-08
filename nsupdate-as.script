@@ -1,0 +1,7 @@
+ttl 60
+server 192.0.2.53
+del pdns{{ ansible_hostname[-2:] }}b.dnslab.org.
+send
+add pdns{{ ansible_hostname[-2:] }}b.dnslab.org. a {{ ansible_eth0.ipv4.address }}
+send
+quit

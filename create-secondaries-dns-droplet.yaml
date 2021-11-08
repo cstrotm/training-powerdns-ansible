@@ -1,0 +1,28 @@
+- hosts: localhost
+  vars:
+    digital_ocean_token: <token>
+    droplet_size: s-1vcpu-1gb
+    droplet_region: tor1
+    droplet_image: debian-11-x64
+  tasks:
+  - name: create a new droplet assigning the key
+    digital_ocean_droplet:
+      name: "{{ item }}"
+      oauth_token: "{{ digital_ocean_token }}"
+      size: "{{ droplet_size }}"
+      region: "{{ droplet_region }}"
+      image: "{{ droplet_image }}"
+      wait_timeout: 600
+      unique_name: yes
+      ipv6: yes
+      ssh_keys: ["1", "2", ]
+      state: present
+    with_inventory_hostnames:
+      - secondaries
+    register: droplet_result
+  - name: save ip and hostname to file "auth.hosts"
+    lineinfile:
+      path: auth.hosts
+      regexp: '.*{{ item.data.droplet.name }}$'
+      line: "{{ item.data.droplet.name }} ansible_host={{ item.data.ip_address }}"
+    with_items: "{{ droplet_result.results }}"

@@ -1,0 +1,108 @@
+---
+- name: Install PowerDNS Recursor training lab server
+  hosts: resolver
+  become: true
+  tasks:
+  - name: Upgrade the OS (apt-get dist-upgrade)
+    apt:
+      upgrade: dist
+      update_cache: yes
+  - name: Install tools
+    apt: name="{{ item }}"
+    loop:
+      - tmux
+      - tcpdump
+      - emacs-nox
+      - nano
+      - vim
+      - joe
+      - jove
+      - cockpit
+      - lsof
+      - git
+      - socat
+      - dnsutils
+  - name: Add User
+    # Password "PowerDNS"
+    user: name="user" group="sudo" password="$6$AJAGrL5nypCLboc3$XUuDmqwKmQUe5SOpiZ3jfjdpXv1NodtBWKAC8naMLOGs14b3mvyLBwVQ5TKAPImjo.Cgw//qHHVs6mK4JY9iN1"
+  - name: Enable and start cockpit
+    service: name="cockpit" enabled="yes" state="started"
+  - name: Create directory for Cockpit socket overlay
+    file:
+      path: /etc/systemd/system/cockpit.socket.d/
+      state: directory
+  - name: Copy Cockpit socket overlay
+    copy:
+      src=local.conf
+      dest=/etc/systemd/system/cockpit.socket.d/local.conf
+  - name: Restart Cockpit
+    service:
+      name="cockpit.socket"
+      state="restarted"
+      daemon_reload=yes   
+  - name: Enable SSH password authentication
+    lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regexp: "^#PasswordAuthentication yes"
+        line: "PasswordAuthentication yes"
+    notify: kick_sshd
+  - name: Enable SSH password authentication 2
+    lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regexp: "PasswordAuthentication no"
+        line: "PasswordAuthentication yes"
+    notify: kick_sshd
+  handlers:
+  - name: "kick_sshd"
+    service: name="sshd" state="restarted"
+- name: Register machine in DNS
+  hosts: resolver
+  become: true
+  tasks:
+  - name: Copy DNS/TLS key files to server
+    template: src="{{ item }}" dest="/tmp" owner="root" group="root" mode="0440"
+    loop:
+      - dane.key
+      - nsupdate-r.script
+      - dnslab.key
+  - name: Create DNS entries
+    command: nsupdate -k /tmp/dane.key /tmp/nsupdate-r.script
+  - name: Install TLS certificate from dnslab.org
+    get_url:
+        url: "https://jpmens.org/dump/_.dnslab.org.crt"
+        dest: "/tmp/dnslab.crt"
+        mode: "0444"
+  - name: Generate cockpit TLS cert from key/crt files
+    command:
+        argv:
+            - /usr/sbin/remotectl
+            - certificate
+            - /tmp/dnslab.crt
+            - /tmp/dnslab.key
+        creates: /etc/cockpit/ws-certs.d/dnslab.cert
+    notify: "kick_cockpit"
+  - name: Change TLS cert file ownership, group and permissions
+    ansible.builtin.file:
+      path: /etc/cockpit/ws-certs.d/dnslab.cert
+      owner: root
+      group: root
+      mode: '0644'
+  handlers:
+  - name: Restart Cockpit service
+    listen: kick_cockpit
+    service:
+        name: "cockpit"
+        state: restarted
+- name: cleanup
+  hosts: resolver
+  become: true
+  tasks:
+    - name: Clean NSUPDATE Key
+      file: state="absent" path="/tmp/dane.key"
+    - name: Clean TLS Key
+      file: state="absent" path="/tmp/dnslab.key"
+    - name: Clean TLS Cert
+      file: state="absent" path="/tmp/dnslab.crt"
+    - name: Clean nsupdate script
+      file: state="absent" path="/tmp/nsupdate-r.script"
+

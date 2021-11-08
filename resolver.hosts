@@ -1,0 +1,14 @@
+[resolver]
+pdnsr001.dnslab.org
+pdnsr002.dnslab.org
+pdnsr003.dnslab.org
+pdnsr004.dnslab.org
+pdnsr005.dnslab.org
+pdnsr006.dnslab.org
+pdnsr007.dnslab.org
+pdnsr008.dnslab.org
+pdnsr009.dnslab.org
+pdnsr010.dnslab.org
+
+[resolver:vars]
+ansible_user=root
